@@ -1,0 +1,4 @@
+DATABASE_USER=usuario
+DATABASE_PASSWORD=contraseña
+DATABASE_HOST=localhost
+DATABASE_NAME=nombre_base_datos

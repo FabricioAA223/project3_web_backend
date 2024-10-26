@@ -1,0 +1,9 @@
+# Ignorar archivos de configuración específicos del entorno
+.env
+
+# Ignorar archivos de caché y entornos virtuales de Python
+__pycache__/
+*.py[cod]
+env/
+venv/
+project3_web/
