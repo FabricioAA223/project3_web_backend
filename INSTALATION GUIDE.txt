@@ -1,0 +1,22 @@
+CONFIGURACION DEL ENTORNO DE DESARROLLO
+    1. Version de python 3.10 o superior instalada
+    2. Crear un entorno virtual (opcional pero recomendado):
+        python -m venv env
+    3. Activa el entorno virtual:
+        .\env\Scripts\activate
+        source env/bin/activate
+    4. Instalar las dependencias
+        pip install -r requirements.txt
+
+CONFIGURACION DE POSTGRESQL
+    1. Instalar PostgreSQL
+    2. Crear una base de datos
+    3. Crear una copia del archivo ".env example"
+    4. Cambiar el nombre de la copia del archivo a ".env"
+    5. Cambiar todas las variables por los valores reales
+
+EJECUCION
+    6. Ejecutar el servidor por medio de alguna de las siguientes opciones:
+        a. Ejecutar el comando "uvicorn main.main:app --reload" dentro del directorio del repositorio
+        b. Abrir el archivo main.py -> Opcion "Run or Debug" de VSC -> "Python debbuger:Debbuging using launch.json"
+    7. Probar el API ingresando a http://127.0.0.1:8000/docs o por medio de Postman o Thunder Client (VSC Extension)
