@@ -3,6 +3,9 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
+import jwt
 from .database import SessionLocal, engine, Base
 from .crud import (
     login_user, register_user, logout_user, 
@@ -35,9 +38,32 @@ def get_db():
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+# Decodifica el token JWT para obtener los datos del usuario
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return username
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 @app.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     return login_user(db, request.username, request.password)
+
+@app.get("/profile")
+def get_profile(user_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    # Ahora puedes utilizar el token para autenticar al usuario
+    username = get_current_user(token)
+    return get_user_profile(db, user_id)
 
 class RegisterRequest(BaseModel):
     email: str

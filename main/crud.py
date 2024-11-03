@@ -1,15 +1,31 @@
+import jwt  # Importa PyJWT para trabajar con tokens
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from .models import User
-from datetime import datetime
 from fastapi import HTTPException
+
+# Clave secreta para generar tokens (esta debe ser segura y mantenerse privada)
+SECRET_KEY = "YOUR_SECRET_KEY"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Función para crear un token JWT
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # Función para iniciar sesión
 def login_user(db: Session, username: str, password: str):
+    print(username, password)
     user = db.query(User).filter(User.username == username).first()
     if user and user.verify_password(password):
-        # Lógica para crear un token de sesión
-        return {"status": "success", "message": "Login successful"}
+        # Genera un token de sesión
+        access_token = create_access_token(data={"sub": user.username})
+        return {"access_token": access_token, "token_type": "bearer"}
     raise HTTPException(status_code=400, detail="Incorrect username or password")
+
 
 # Función para registrar un usuario
 def register_user(db: Session, request):
