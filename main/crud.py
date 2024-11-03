@@ -1,8 +1,17 @@
+from sqlite3 import IntegrityError
 import jwt  # Importa PyJWT para trabajar con tokens
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from .models import User
 from fastapi import HTTPException
+from .schemas import RegisterRequest
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
 
 # Clave secreta para generar tokens (esta debe ser segura y mantenerse privada)
 SECRET_KEY = "YOUR_SECRET_KEY"
@@ -18,31 +27,41 @@ def create_access_token(data: dict):
 
 # Función para iniciar sesión
 def login_user(db: Session, username: str, password: str):
-    print(username, password)
     user = db.query(User).filter(User.username == username).first()
+    
+    # Verifica si el usuario existe y la contraseña es correcta
     if user and user.verify_password(password):
-        # Genera un token de sesión
+        # Genera un token de sesión (implementa create_access_token si no lo tienes)
         access_token = create_access_token(data={"sub": user.username})
         return {"access_token": access_token, "token_type": "bearer"}
+    
     raise HTTPException(status_code=400, detail="Incorrect username or password")
 
+def register_user(db: Session, email: str, username: str, password: str, birthday: str, gender: str):
+    # Verifica si el usuario ya existe
+    existing_user = db.query(User).filter((User.email == email) | (User.username == username)).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email or username already registered")
 
-# Función para registrar un usuario
-def register_user(db: Session, request):
+    # Crea un nuevo usuario
     new_user = User(
-        email=request.email,
-        username=request.username,
-        password=User.hash_password(request.password),
-        weight=request.weight,
-        height=request.height,
-        birthdate=request.birthdate,
-        gender=request.gender,
-        created_at=datetime.utcnow()
+        email=email,
+        username=username,
+        password=hash_password(password),
+        birthday=birthday,
+        gender=gender
     )
+    
+    # Añade el nuevo usuario a la sesión de la base de datos
     db.add(new_user)
+    
+    # Realiza el commit para guardar los cambios
     db.commit()
+    
+    # Refresca la instancia para obtener el ID del usuario
     db.refresh(new_user)
-    return {"status": "success", "message": "User registered successfully"}
+
+    return new_user 
 
 # Función para cerrar sesión
 def logout_user(db: Session, token: str):

@@ -1,12 +1,22 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Literal
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
 # Esquema para el Genero
 class GeneroEnum(str, Enum):
     MASCULINO = "Masculino"
     FEMENINO = "Femenino"
+
+class RegisterRequest(BaseModel):
+    email: EmailStr  # Asegúrate de que sea un correo electrónico válido
+    username: str
+    password: str
+    birthday: date  # Cambio a Date
+    gender: GeneroEnum
+
+    class Config:
+        orm_mode = True  # Permite que se use el modelo ORM
 
 # Esquema para el Usuario
 class UserBase(BaseModel):
