@@ -6,7 +6,7 @@ CONFIGURACION DEL ENTORNO DE DESARROLLO
         .\env\Scripts\activate
         source env/bin/activate
     4. Instalar las dependencias
-        pip install -r requirements.txt
+        pip install -r requeriments.txt
 
 CONFIGURACION DE POSTGRESQL
     1. Instalar PostgreSQL
