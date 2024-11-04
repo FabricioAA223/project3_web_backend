@@ -35,13 +35,13 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 # Cargar datos de ejemplo solo una vez
-with SessionLocal() as db:
-    exampleData(db)
+#with SessionLocal() as db:
+ #   exampleData(db)
 # Dependency para obtener la sesión de BD
 
-class GeneroEnum(enum.Enum):
-    MASCULINO = "Masculino"
-    FEMENINO = "Femenino"
+class GeneroEnum(str, Enum):
+    MASCULINO = "MASCULINO"
+    FEMENINO = "FEMENINO"
 
 # Dependency para obtener la sesión de BD
 def get_db():
@@ -77,10 +77,26 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 @app.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    gender = GeneroEnum[request.gender.upper()]  # Conviértelo a mayúsculas si es necesario
-    # Llama a register_user con el password incluido
-    return register_user(db, request.email, request.username, request.password, request.birthday, request.gender)
+    try:
+        # Intenta convertir el gender a GeneroEnum
+        gender = GeneroEnum[request.gender.upper()]  # Convierte a mayúsculas para evitar problemas de coincidencia
+        
+    except KeyError:
+        # Manejo de error si el gender no es válido
+        print(gender)
+        raise HTTPException(status_code=400, detail=f"Invalid gender value: {request.gender}. Must be 'MASCULINO' or 'FEMENINO'.")
 
+    # Llama a register_user con los parámetros incluidos
+    return register_user(
+        db=db,
+        email=request.email,
+        username=request.username,
+        password=request.password,
+        birthday=request.birthday,
+        gender=gender,
+        weight=request.weight,
+        height=request.height
+    )
 
 @app.post("/logout", response_model=dict)
 def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):

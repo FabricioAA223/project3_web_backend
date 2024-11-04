@@ -1,16 +1,16 @@
 import enum
-from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, DateTime, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from .database import Base
 from passlib.context import CryptContext
+from sqlalchemy import Column, Integer, String, Enum as SQLAlchemyEnum, Float, ForeignKey, DateTime, Date
 
 # Inicializa el contexto de encriptación
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class GeneroEnum(enum.Enum):
-    MASCULINO = "Masculino"
-    FEMENINO = "Femenino"
+    MASCULINO = "MASCULINO"
+    FEMENINO = "FEMENINO"
 
 class User(Base):
     __tablename__ = "users"
@@ -20,7 +20,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)  # Asegurarse de que sea único
     password = Column(String, nullable=False)
     birthday = Column(Date, nullable=False)  # Cambio a Date
-    gender = Column(Enum(GeneroEnum), nullable=False)
+    gender = Column(SQLAlchemyEnum(GeneroEnum, name="generoenum"), nullable=False)
     
     # Relaciones con otras tablas
     weights = relationship("Weight", back_populates="user", cascade="all, delete-orphan")
@@ -41,7 +41,7 @@ class Weight(Base):
     __tablename__ = "weights"
     
     date = Column(DateTime, primary_key=True, index=True, default=lambda: datetime.now(timezone.utc))
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True, index=True, nullable=False)
+    user_id = Column("userId",Integer, ForeignKey('users.id'), primary_key=True, index=True, nullable=False)
     weight = Column(Float, nullable=False)
     
     user = relationship("User", back_populates="weights")
@@ -50,7 +50,7 @@ class Height(Base):
     __tablename__ = "heights"
     
     date = Column(DateTime, primary_key=True, index=True, default=lambda: datetime.now(timezone.utc))
-    user_id = Column(Integer, ForeignKey('users.id'), primary_key=True, index=True, nullable=False)
+    user_id = Column("userId", Integer, ForeignKey('users.id'), primary_key=True, index=True, nullable=False)
     height = Column(Float, nullable=False)
     
     user = relationship("User", back_populates="heights")

@@ -2,10 +2,11 @@ from sqlite3 import IntegrityError
 import jwt  # Importa PyJWT para trabajar con tokens
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from .models import User
+from .models import User, Weight, Height
 from fastapi import HTTPException
 from .schemas import GeneroEnum
 from passlib.context import CryptContext
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -37,34 +38,32 @@ def login_user(db: Session, username: str, password: str):
     
     raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-def register_user(db: Session, email: str, username: str, password: str, birthday: str, gender: GeneroEnum):
-    # Convertir el género del Enum a su valor en cadena
-    genero = gender.value  # Toma el valor como 'Masculino' o 'Femenino'
-
-    # Verifica si el usuario ya existe
-    existing_user = db.query(User).filter((User.email == email) | (User.username == username)).first()
+def register_user(db: Session, email: str, username: str, password: str, birthday: str, gender: GeneroEnum, weight: float, height: float): 
+    # Verificar si el usuario ya existe
+    existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email or username already registered")
+        raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado")
 
-    # Crea un nuevo usuario
-    new_user = User(
-        email=email,
-        username=username,
-        password=hash_password(password),
-        birthday=birthday,
-        gender=genero  # Usa el valor en cadena en lugar del Enum
-    )
-
-    # Añade el nuevo usuario a la sesión de la base de datos
+    # Crear un nuevo usuario
+    new_user = User(email=email, username=username, password=password, birthday=birthday, gender=gender)
+    
+    # Agregar el nuevo usuario a la sesión
     db.add(new_user)
+    db.commit()
+    db.refresh(new_user)  # Obtener el usuario recién creado con el ID generado
 
-    # Realiza el commit para guardar los cambios
+    # Crear registros de peso y altura
+    weight_record = Weight(user_id=new_user.id, weight=weight)  # Peso actual
+    height_record = Height(user_id=new_user.id, height=height)  # Altura actual
+    
+    # Agregar los registros a la sesión
+    db.add(weight_record)
+    db.add(height_record)
+
+    # Confirmar los cambios en la base de datos
     db.commit()
 
-    # Refresca la instancia para obtener el ID del usuario
-    db.refresh(new_user)
-
-    return new_user
+    return {"message": "Usuario registrado exitosamente", "user_id": new_user.id}
 
 # Función para cerrar sesión
 def logout_user(db: Session, token: str):

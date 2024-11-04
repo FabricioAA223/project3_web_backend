@@ -14,6 +14,8 @@ class RegisterRequest(BaseModel):
     password: str
     birthday: date  # Cambio a Date
     gender: GeneroEnum
+    weight: float
+    height: float
 
     class Config:
         orm_mode = True  # Permite que se use el modelo ORM
