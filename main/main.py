@@ -8,7 +8,7 @@ from .crud import (
     login_user, register_user, logout_user, 
     get_user_profile, update_user_profile,
     import_sensor_data, get_dashboard_view,
-    get_data_history
+    get_data_history, add_dummy_user
 )
 
 app = FastAPI()
@@ -70,8 +70,8 @@ def update_profile(user_id: int, request: UpdateProfileRequest, db: Session = De
     return update_user_profile(db, user_id, request)
 
 @app.post("/import-data")
-def import_data(data_type: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    return import_sensor_data(db, data_type, file)
+def import_data(user_id: int, data_type: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    return import_sensor_data(db, user_id, data_type, file)
 
 @app.get("/dashboard/view")
 def dashboard_view(user_id: int, db: Session = Depends(get_db)):
@@ -80,3 +80,7 @@ def dashboard_view(user_id: int, db: Session = Depends(get_db)):
 @app.get("/dashboard/history")
 def data_history(user_id: int, data_type: str, period: str, db: Session = Depends(get_db)):
     return get_data_history(db, user_id, data_type, period)
+
+@app.post("/add-dummy-user")
+def add_dummy_user_route(db: Session = Depends(get_db)):
+    return add_dummy_user(db)
