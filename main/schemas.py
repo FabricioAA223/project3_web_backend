@@ -5,8 +5,8 @@ from enum import Enum
 
 # Esquema para el Genero
 class GeneroEnum(str, Enum):
-    MASCULINO = "Masculino"
-    FEMENINO = "Femenino"
+    MASCULINO = "MASCULINO"
+    FEMENINO = "FEMENINO"
 
 class RegisterRequest(BaseModel):
     email: EmailStr  # Asegúrate de que sea un correo electrónico válido
