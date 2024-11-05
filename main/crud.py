@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import HTTPException, UploadFile
 import pandas as pd
 from sqlalchemy import func
@@ -59,7 +59,19 @@ def update_user_profile(db: Session, user_id: int, request):
 #     return {"status": "success", "message": "Data imported successfully"}
 def import_sensor_data(db: Session, user_id: int, data_type: str, file: UploadFile):
     try:
-        df = pd.read_csv(file.file)
+        # Leer el archivo CSV y eliminar espacios iniciales
+        df = pd.read_csv(file.file, delimiter=',', skipinitialspace=True)
+        
+        # Eliminar espacios en los nombres de las columnas
+        df.columns = df.columns.str.strip().astype(str).str.replace(';+', '', regex=True)
+        
+        # Identificar la última columna
+        last_column = df.columns[-1]
+        
+        # Limpiar los valores en la última columna para eliminar `;;;` y convertir a numérico si es posible
+        df[last_column] = df[last_column].astype(str).str.replace(';+', '', regex=True)
+        print(df.head())
+
         if data_type == 'weights':
             for _, row in df.iterrows():
                 new_weight = Weight(
@@ -199,7 +211,69 @@ def add_dummy_user(db: Session):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+
 # Función para cargar el histórico de datos
 def get_data_history(db: Session, user_id: int, data_type: str, period: str):
-    # Consultas SQL basadas en el periodo de tiempo seleccionado
-    return {"status": "success", "data": "Historical data"}
+    # Calcula la fecha inicial según el período
+    today = datetime.today()
+    if period == 'week':
+        start_date = today - timedelta(weeks=1)
+    elif period == 'month':
+        start_date = today - timedelta(days=30)
+    elif period == 'three_months':
+        start_date = today - timedelta(days=90)
+    elif period == 'six_months':
+        start_date = today - timedelta(days=180)
+    elif period == 'year':
+        start_date = today - timedelta(days=365)
+    else:
+        return {"status": "error", "message": "Invalid period"}
+
+    # Mapea el data_type a la tabla correspondiente
+    data_type_map = {
+        'weights': {"table":Weight, "column":"weight", "label":"Peso (kg)"},
+        'muscle': {"table":BodyComposition, "column":"muscle", "label":"Músculo"}, #Pero a la columna Muscle
+        'body_fat_percentage': {"table":BodyFatPercentage, "column":"fatPercentage", "label":"Porcentaje de grasa corporal (%)"},
+        'water_consumption': {"table":WaterConsumption, "column":"waterAmount", "label":"Vasos de agua"},
+        'steps': {"table":DailySteps, "column":"stepsAmount", "label":"Pasos durante el día"},
+        # 'exercises': {"table":Exercise, "column":"waterAmount", "label":"Vasos de agua"}, 
+        # Tengo que ver que hago con los ejercicios
+    }
+    if data_type == 'exercises':
+        results = db.query(Exercise.date, Exercise.exerciseName, Exercise.duration) \
+                    .filter(Exercise.userId == user_id)\
+                    .filter(Exercise.date >= start_date)\
+                    .order_by(Exercise.date.asc())\
+                    .all()
+
+        # Manejo de resultados vacíos
+        if not results:
+            return {"status": "success", "data": []}
+        
+        data = [{"fecha": record.date, record.exerciseName: record.duration} for record in results]
+
+        return {"status": "success", "data": data}
+    
+    elif data_type not in data_type_map:
+        return {"status": "error", "message": "Invalid data_type"}
+    
+    # Selecciona la tabla correspondiente
+    table_info = data_type_map[data_type]
+    table = table_info["table"]
+    column_name = table_info["column"]
+
+    # Consulta SQL: Filtra por user_id y fecha en el rango, y selecciona los valores y fechas
+    results = db.query(table.date, getattr(table, column_name)) \
+                .filter(table.userId == user_id)\
+                .filter(table.date >= start_date)\
+                .order_by(table.date.asc())\
+                .all()
+
+    # Manejo de resultados vacíos
+    if not results:
+        return {"status": "success", "data": []}
+    
+    # Prepara los datos para el gráfico
+    data = [{"fecha": record.date, table_info["label"]: record[1]} for record in results]
+
+    return {"status": "success", "data": data}
