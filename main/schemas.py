@@ -27,6 +27,13 @@ class UserBase(BaseModel):
     birthday: str
     gender: GeneroEnum
 
+class UserResponse(UserBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
 class UserCreate(UserBase):
     password: str  # Solo requerido en la creación
 

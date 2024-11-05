@@ -28,15 +28,19 @@ def create_access_token(data: dict):
 
 # Función para iniciar sesión
 def login_user(db: Session, username: str, password: str):
+    # Buscar el usuario en la base de datos por nombre de usuario
     user = db.query(User).filter(User.username == username).first()
     
-    # Verifica si el usuario existe y la contraseña es correcta
-    if user and user.verify_password(password):
-        # Genera un token de sesión (implementa create_access_token si no lo tienes)
-        access_token = create_access_token(data={"sub": user.username})
-        return {"access_token": access_token, "token_type": "bearer"}
+    # Verificar si el usuario fue encontrado
+    if not user:
+        raise HTTPException(status_code=400, detail="Usuario no encontrado")
     
-    raise HTTPException(status_code=400, detail="Incorrect username or password")
+    # Comparar la contraseña (aquí es donde deberías usar hashing en producción)
+    if user.password != password:
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+    
+    # Retornar el objeto usuario si la autenticación fue exitosa
+    return user
 
 def register_user(db: Session, email: str, username: str, password: str, birthday: str, gender: GeneroEnum, weight: float, height: float): 
     # Verificar si el usuario ya existe

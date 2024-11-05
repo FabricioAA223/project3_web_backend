@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from .database import SessionLocal, engine, Base
-from .exampleData import exampleData
-from .schemas import RegisterRequest
+from .schemas import RegisterRequest, UserResponse
 from .crud import (
     login_user, register_user, logout_user, 
     get_user_profile, update_user_profile,
@@ -71,9 +70,15 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # Rutas de la API
-@app.post("/login", response_model=dict)
+@app.post("/login", response_model=UserResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
-    return login_user(db, request.username, request.password)
+    user = login_user(db, request.username, request.password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid username or password")
+    
+    # Retornar el objeto serializado usando el esquema Pydantic
+    return UserResponse.from_orm(user)
+
 
 @app.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
