@@ -30,13 +30,7 @@ class User(Base):
     daily_steps = relationship("DailySteps", back_populates="user", cascade="all, delete-orphan")
     exercises = relationship("Exercise", back_populates="user", cascade="all, delete-orphan")
     body_composition = relationship("BodyComposition", back_populates="user", cascade="all, delete-orphan")
-
-    def verify_password(self, plain_password: str) -> bool:
-        return pwd_context.verify(plain_password, self.password)
-
-    def set_password(self, plain_password: str) -> None:
-        self.password = pwd_context.hash(plain_password)
-
+    
 class Weight(Base):
     __tablename__ = "weights"
     
