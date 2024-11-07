@@ -7,3 +7,4 @@ __pycache__/
 env/
 venv/
 project3_web/
+config.py

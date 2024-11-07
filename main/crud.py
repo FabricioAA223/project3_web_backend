@@ -1,62 +1,151 @@
 from datetime import datetime, timedelta
-from fastapi import HTTPException, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 import pandas as pd
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from .models import User, Weight, Height, BodyComposition, BodyFatPercentage, WaterConsumption, DailySteps, Exercise
+import jwt
+from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer
+from typing import Set
+from config import SECRET_KEY  
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+# Mantener una lista negra de tokens en memoria
+blacklist: Set[str] = set()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+# Configuración para el hash de contraseñas
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Hash de la contraseña
+def get_password_hash(password: str):
+    return pwd_context.hash(password)
+
+# Verificar contraseña
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+# Función para generar un token JWT
+def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=30)):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
+
+# Función para registrar un usuario
+def register_user(db: Session, request):
+    # Verificar si el correo electrónico o el nombre de usuario ya existen
+    existing_user = db.query(User).filter((User.email == request.email) | (User.username == request.username)).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email o nombre de usuario ya está registrado")
+
+    hashed_password = get_password_hash(request.password)
+
+    new_user = User(
+        email=request.email,
+        username=request.username,
+        password=hashed_password,
+        birthday=request.birthdate,
+        gender=request.gender
+    )
+    
+    # Agregar y confirmar usuario
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    # Registrar el peso y altura inicial del usuario
+    db_weight = Weight(userId=new_user.id, date=datetime.utcnow(), weight=request.weight)
+    db_height = Height(userId=new_user.id, date=datetime.utcnow(), height=request.height)
+    
+    db.add(db_weight)
+    db.add(db_height)
+    db.commit()
+
+    return {"status": "success", "message": "User registered successfully"}
 
 # Función para iniciar sesión
 def login_user(db: Session, username: str, password: str):
     user = db.query(User).filter(User.username == username).first()
-    if user and user.verify_password(password):
-        # Lógica para crear un token de sesión
-        return {"status": "success", "message": "Login successful"}
+    if user and verify_password(password, user.password):
+        # Crear un token JWT para el usuario
+        access_token = create_access_token(data={"user_id": user.id})
+        return {"access_token": access_token, "token_type": "bearer"}
     raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-# Función para registrar un usuario
-def register_user(db: Session, request):
-    new_user = User(
-        email=request.email,
-        username=request.username,
-        password=User.hash_password(request.password),
-        weight=request.weight,
-        height=request.height,
-        birthdate=request.birthdate,
-        gender=request.gender,
-        created_at=datetime.utcnow()
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return {"status": "success", "message": "User registered successfully"}
+
+# Dependencia para obtener el usuario actual a partir del token JWT
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    if token in blacklist:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id: int = payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user_id
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 # Función para cerrar sesión
 def logout_user(db: Session, token: str):
-    # Lógica para invalidar el token
+    blacklist.add(token)
     return {"status": "success", "message": "Logout successful"}
 
-# Función para obtener el perfil del usuario
+
 def get_user_profile(db: Session, user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    # Devolver solo los campos necesarios
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "birthday": user.birthday,
+        "gender": user.gender
+    }
 
-# Función para actualizar el perfil del usuario
+
 def update_user_profile(db: Session, user_id: int, request):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Recorremos cada clave y valor en el request para actualizar
     for key, value in request.dict().items():
         if value is not None:
-            setattr(user, key, value)
+            # Si la clave es 'password', entonces hashearla antes de guardar
+            if key == "password":
+                hashed_password = get_password_hash(value)
+                setattr(user, key, hashed_password)
+            else:
+                setattr(user, key, value)
+
     db.commit()
     return {"status": "success", "message": "Profile updated successfully"}
 
-# Función para importar datos de sensores
-# def import_sensor_data(db: Session, data_type: str, file):
-#     # Lógica para procesar el archivo CSV y almacenar los datos
-#     return {"status": "success", "message": "Data imported successfully"}
 def import_sensor_data(db: Session, user_id: int, data_type: str, file: UploadFile):
     try:
         # Leer el archivo CSV y eliminar espacios iniciales
@@ -72,6 +161,7 @@ def import_sensor_data(db: Session, user_id: int, data_type: str, file: UploadFi
         df[last_column] = df[last_column].astype(str).str.replace(';+', '', regex=True)
         print(df.head())
 
+        # Insertar los datos dependiendo del tipo
         if data_type == 'weights':
             for _, row in df.iterrows():
                 new_weight = Weight(
@@ -139,14 +229,7 @@ def import_sensor_data(db: Session, user_id: int, data_type: str, file: UploadFi
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# Función para cargar la vista general del dashboard
-# def get_dashboard_view(db: Session, user_id: int):
-#     # Consultas SQL con MAX basado en fecha para cada elemento esperado
-#     return {"status": "success", "data": "Dashboard data"}
-# Implementación mejorada de la función get_dashboard_view
-# Implementación mejorada de la función get_dashboard_view
-
+# Dash
 def get_dashboard_view(db: Session, user_id: int):
     try:
         # Peso Actual

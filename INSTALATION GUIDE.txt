@@ -14,6 +14,9 @@ CONFIGURACION DE POSTGRESQL
     3. Crear una copia del archivo ".env example"
     4. Cambiar el nombre de la copia del archivo a ".env"
     5. Cambiar todas las variables por los valores reales
+    6. Crear una copia del archivo "config.py example"
+    7. Cambiar el nombre de la copia del archivo a "config.py"
+    8. Asignar una clase seguro al SECRET_KEY 
 
 EJECUCION
     6. Ejecutar el servidor por medio de alguna de las siguientes opciones:
