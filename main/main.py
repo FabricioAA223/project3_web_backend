@@ -7,9 +7,11 @@ import enum
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 import jwt
+from datetime import datetime, timedelta
+import bcrypt
 from .models import User
 from .database import SessionLocal, engine, Base
-from .schemas import RegisterRequest, LoginRequest
+from .schemas import RegisterRequest, LoginRequest, UserBase
 from .crud import (
     login_user, register_user, logout_user, 
     get_user_profile, update_user_profile,
@@ -19,6 +21,20 @@ from .crud import (
 
 SECRET_KEY = "your_secret_key_here"
 ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+def create_access_token(data: dict):
+    # Crear una copia de los datos para evitar modificaciones
+    to_encode = data.copy()
+
+    # Añadir fecha de expiración
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+
+    # Generar el token con la clave secreta y el algoritmo
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 app = FastAPI()
 
@@ -34,15 +50,6 @@ app.add_middleware(
 # Crear tablas en la base de datos
 Base.metadata.create_all(bind=engine)
 
-# Cargar datos de ejemplo solo una vez
-#with SessionLocal() as db:
- #   exampleData(db)
-# Dependency para obtener la sesión de BD
-
-class GeneroEnum(str, Enum):
-    MASCULINO = "MASCULINO"
-    FEMENINO = "FEMENINO"
-
 # Dependency para obtener la sesión de BD
 def get_db():
     db = SessionLocal()
@@ -52,6 +59,9 @@ def get_db():
         db.close()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+class GeneroEnum(str, Enum):
+    MASCULINO = "MASCULINO"
+    FEMENINO = "FEMENINO"
 
 # Decodifica el token JWT para obtener los datos del usuario
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -66,25 +76,25 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-# Rutas de la API
+# Ruta de login
 @app.post("/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    return login_user(db, request.username, request.password)
+async def login(request: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == request.username).first()
 
+    # Verifica si el usuario existe y la contraseña coincide
+    if user is None or user.password != request.password:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
+    # Devolver el id del usuario si las credenciales son correctas
+    return {"id": user.id}
 
 @app.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        # Intenta convertir el gender a GeneroEnum
         gender = GeneroEnum[request.gender.upper()]  # Convierte a mayúsculas para evitar problemas de coincidencia
-        
     except KeyError:
-        # Manejo de error si el gender no es válido
-        print(gender)
         raise HTTPException(status_code=400, detail=f"Invalid gender value: {request.gender}. Must be 'MASCULINO' or 'FEMENINO'.")
-
-    # Llama a register_user con los parámetros incluidos
+    
     return register_user(
         db=db,
         email=request.email,
@@ -98,13 +108,16 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 @app.post("/logout", response_model=dict)
 def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    # Aquí podrías implementar la lógica de cierre de sesión si es necesario.
     return {"message": "Logged out successfully."}
 
-@app.get("/profile", response_model=dict)
-def get_profile(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = get_current_user(token)
-    return get_user_profile(db, username)
+@app.get("/profile/{user_id}")
+async def get_profile(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()  # Asegúrate de que solo uses `user_id`
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
+
+
 
 class UpdateProfileRequest(BaseModel):
     email: Optional[str]

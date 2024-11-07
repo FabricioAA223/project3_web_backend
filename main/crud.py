@@ -27,25 +27,16 @@ def create_access_token(data: dict):
 
 # Función para iniciar sesión
 def login_user(db: Session, username: str, password: str):
-    # Buscar el usuario en la base de datos
     user = db.query(User).filter(User.username == username).first()
     
-    if not user:
-        print("Usuario no encontrado")
-        return {"error": "Usuario no encontrado"}, 404
-    elif user.password != password:
-        print("Contraseña incorrecta")
-        return {"error": "Contraseña incorrecta"}, 401
+    if user is None:
+        return None  # Usuario no encontrado
+    
+    # Verificar si la contraseña es la misma (comparación en texto plano)
+    if user.password == password:
+        return user  # Contraseña correcta, se devuelve el usuario
     else:
-        print("Inicio de sesión exitoso")
-        # Generar un token JWT
-        access_token = create_access_token(data={"sub": user.username})
-        print(access_token)
-        #usar el token para enviarlo en la respuesta
-        return {"access_token": access_token, "token_type": "bearer"}
-    
-
-    
+        return None  # Contraseña incorrecta
 
     
     
