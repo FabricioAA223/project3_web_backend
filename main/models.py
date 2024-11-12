@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, DateTime
+from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, DateTime, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from .database import Base
@@ -14,7 +14,7 @@ class User(Base):
     email = Column(String, nullable=False)
     username = Column(String, nullable=False)
     password = Column(String, nullable=False)
-    birthday = Column(String, nullable=False)
+    birthdate = Column(Date, nullable=False)
     gender = Column(Enum(GeneroEnum), nullable=False)  # Solo permite "Masculino" o "Femenino"
 
 class Weight(Base):

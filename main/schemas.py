@@ -1,18 +1,18 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Literal
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
 
 # Esquema para el Genero
 class GeneroEnum(str, Enum):
-    MASCULINO = "Masculino"
-    FEMENINO = "Femenino"
+    MASCULINO = "MASCULINO"
+    FEMENINO = "FEMENINO"
 
 # Esquema para el Usuario
 class UserBase(BaseModel):
     email: EmailStr
     username: str
-    birthday: str
+    birthdate: date
     gender: GeneroEnum
 
 class UserCreate(UserBase):

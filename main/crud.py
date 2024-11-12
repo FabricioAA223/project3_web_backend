@@ -48,7 +48,7 @@ def register_user(db: Session, request):
         email=request.email,
         username=request.username,
         password=hashed_password,
-        birthday=request.birthdate,
+        birthdate=request.birthdate,
         gender=request.gender
     )
     
@@ -123,8 +123,8 @@ def get_user_profile(db: Session, user_id: int):
         "id": user.id,
         "email": user.email,
         "username": user.username,
-        "birthday": user.birthday,
-        "gender": user.gender
+        "birthdate": user.birthdate,
+        "gender": user.gender.name
     }
 
 
@@ -284,7 +284,7 @@ def add_dummy_user(db: Session):
             email="dummyuser@example.com",
             username="dummyuser",
             password="olman123", 
-            birthday="2000-01-01",
+            birthdate="2000-01-01",
             gender="MASCULINO"
         )
         db.merge(dummy_user)

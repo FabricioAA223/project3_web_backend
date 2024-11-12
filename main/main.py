@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel
@@ -48,15 +49,15 @@ class RegisterRequest(BaseModel):
     password: str
     weight: float
     height: float
-    birthdate: str
+    birthdate: date
     gender: str
 
 # Modificación aquí: Todos los campos son opcionales y tienen valor por defecto de None
 class UpdateProfileRequest(BaseModel):
-    email: Optional[str] = None
+    email: Optional[str] = None 
     username: Optional[str] = None
     password: Optional[str] = None
-    birthdate: Optional[str] = None
+    birthdate: Optional[date] = None
     gender: Optional[str] = None
 @app.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
@@ -70,10 +71,13 @@ def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
 
 @app.get("/profile")
 def get_profile(user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+    print("Hola")
     return get_user_profile(db, user_id)
 
 @app.post("/profile/update")
 def update_profile(request: UpdateProfileRequest, user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+    print("Hola2")
+    print(request.birthdate)
     return update_user_profile(db, user_id, request)
 
 @app.post("/import-data")
